@@ -41,7 +41,19 @@ This project sits somewhere in between: the AI was given detailed descriptions f
 8. **Testing cycle** — Continued after Phase A and Phase B were finished.
 9. **Requested conversation analytics from the AI.**
 
-<----Conversationanalysis.md---->
+## Project review
+
+### Notable issues
+- Even with `.md` prompt files, it was difficult to keep them up to date over multiple computers.
+- Not keeping the `.md` documentation files updated created conflicts that extended Q/A time with AI, issues not being corrected, and a possible regression of code.
+- Using free versions of AI became impossible after combining the `.js`, `.html`, and `.css` files, due to the processing needed to analyze all of the files. A single request would use up all of the allotted time.
+- Starting with a large scope caused issues when downsizing, changing, or removing features that were not needed.
+
+### Improvements
+- A system needs to be implemented to keep `.md` documentation up to date over multiple computers.
+- Starting scope needs to start out smaller, with any additions planned in steps.
+
+### **<--------Conversationanalysis.md-------->**
 
 # Conversation Analysis — Logic Gate Simulator (JointJS Rewrite + Phases A/B + Corrections)
 
@@ -52,14 +64,14 @@ This project sits somewhere in between: the AI was given detailed descriptions f
 > timestamps inside local test-server access logs I happened to leave on
 > disk. Two real limits on this evidence, found while compiling it:
 > 1. A file's timestamp only reflects its **last** write. Several files
->    (`shapes.js`, `canvas.js`, `logic.js`, `selection.js`, `popups.js`,
->    `toolbar.js`, `tables.js`, `saveLoad.js`, `index.html`, `style.css`)
->    were edited in more than one phase, so their current timestamp only
->    marks the *final* edit — earlier edits from Phase A or B leave no trace.
+     >    (`shapes.js`, `canvas.js`, `logic.js`, `selection.js`, `popups.js`,
+     >    `toolbar.js`, `tables.js`, `saveLoad.js`, `index.html`, `style.css`)
+     >    were edited in more than one phase, so their current timestamp only
+     >    marks the *final* edit — earlier edits from Phase A or B leave no trace.
 > 2. I restarted the local test server with a truncating log redirect
->    (`> file.log`, not `>>`) at least once during Phase B, which erased
->    earlier testing bursts on that port. Phase B's testing time below is
->    therefore a **floor**, not the true total.
+     >    (`> file.log`, not `>>`) at least once during Phase B, which erased
+     >    earlier testing bursts on that port. Phase B's testing time below is
+     >    therefore a **floor**, not the true total.
 >
 > Where the evidence genuinely can't distinguish "you were composing a
 > reply" from "I was still working mid-turn," I've said so rather than
@@ -77,7 +89,7 @@ This project sits somewhere in between: the AI was given detailed descriptions f
 | Phase A: first file write → last Phase A browser test | **3h 52m 41s** | Writing all Phase A files (JointJS shapes, canvas, flip/port-mirroring, world bounds, Create Gate) and testing them — entirely inside one continuous reply, no user message in between |
 | Phase B browser-testing window (log survives) | **2m 33s** | The *last* restart's worth of Phase B testing only — see the truncation caveat above. The real figure is higher; the SR-latch/self-loop debugging alone involved more test runs than this window could contain |
 | Correction-batch browser-testing window | **13m 17s** | Rubber-band fix, size-scale check, tool-cursor tests, note-badge/clock-speed/wire-hit-area tests, and the wire z-ordering investigation (`toBack()` timing bug), all in one session |
-| Writing the three updated `.md` files | **1m 46s** | `jsPrompt.md` → `cssPrompt.md` → `htmlPrompt.md` |
+| Writing the three updated `.md` files | **1m 46s** | `javascript.md` → `colorScheme.md` → `htmlPromptForCSS.md` |
 
 ### What is NOT separable with this evidence
 
@@ -106,7 +118,7 @@ those instead of guessing from file evidence.
 6. **Phase B testing** — SR latch built from real NOR gates, oscillation detection, Save/Load round-trips, Back/Forward state machine, gate-limit-bypass-on-restore.
 7. **Full project zip delivered** on request.
 8. **Correction batch**: 9 separate user-reported issues/requests fixed in one pass (rubber-band visibility, 50% size increase, tool cursors, default cursor, truth-table titles, note badges, wider wire hit-area, adjustable clock speed) — plus two regressions this batch itself introduced and had to chase down (see below).
-9. **Doc rewrite**: `jsPrompt.md`, `cssPrompt.md`, and `htmlPrompt.md` (the last one had been stale since Phase A and was never previously touched) brought up to date with everything above — which surfaced one more real bug (custom gates had zero CSS styling, found while documenting them, not by a prior test).
+9. **Doc rewrite**: `javascript.md`, `colorScheme.md`, and `htmlPromptForCSS.md` (the last one had been stale since Phase A and was never previously touched) brought up to date with everything above — which surfaced one more real bug (custom gates had zero CSS styling, found while documenting them, not by a prior test).
 10. **This document.**
 
 ## Significant changes
@@ -131,4 +143,4 @@ Most of this conversation was ordinary build-and-test work. A smaller number of 
 
 - **Every fix in this conversation was verified with real Playwright browser tests against your actual `joint.js`**, not just code review — this caught several bugs (items 2–7 above, plus a missing CSS rule for custom gates) that static reading would not have found, at the cost of real wall-clock time per fix (each of items 2–7 took multiple test-debug-retest cycles, visible in the correction-batch's 13m17s window alone covering several such cycles).
 - **Two corrections in the batch directly regressed each other**: widening the wire's click target (your request) broke the ability to start a second wire from an already-connected port, which only surfaced because the SR latch regression test happens to need exactly that (one output feeding two gates). Without that specific pre-existing test, this regression could easily have shipped unnoticed.
-- **Documentation had drifted significantly behind the code** before this pass — `htmlPrompt.md` still described a pre-JointJS DOM structure that had been obsolete since very early in the project, and was flagged as stale once but not actually corrected until this request.
+- **Documentation had drifted significantly behind the code** before this pass — `htmlPromptForCSS.md` still described a pre-JointJS DOM structure that had been obsolete since very early in the project, and was flagged as stale once but not actually corrected until this request.
