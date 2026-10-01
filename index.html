@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Logic Gate Simulator</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!--
+      JointJS (open-source core, MPL-2.0 — @joint/core, the maintained
+      successor to the deprecated `jointjs` package; NOT JointJS+/Rappid,
+      which is a separate paid product this app does not use).
+      Lives at ./joint.js, next to index.html. No network access needed —
+      this is a real local file, not a CDN reference.
+    -->
+    <script src="joint.js"></script>
+
+    <!-- Load guard: if joint.js failed to load (missing/renamed/wrong path),
+         `joint` is undefined here. Classic inline script, so it runs even
+         though every ES module below depends on `joint` and will otherwise
+         fail silently with no visible sign anything is wrong. -->
+    <script>
+        if (typeof joint === 'undefined') {
+            console.error('JointJS failed to load: expected ./joint.js next to index.html.');
+            document.addEventListener('DOMContentLoaded', function () {
+                var banner = document.createElement('div');
+                banner.textContent = 'JointJS failed to load — expected at joint.js, next to index.html. The simulator cannot run until that file is restored.';
+                banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;' +
+                    'background:#b00020;color:#fff;font:600 14px/1.4 system-ui,sans-serif;' +
+                    'padding:10px 16px;text-align:center;';
+                document.body.prepend(banner);
+            });
+        }
+    </script>
+
+    <!-- Font: local-first. The font stack is 'JetBrains Mono', 'Courier New',
+         monospace, so an installed copy of JetBrains Mono (or the system
+         monospace fallback) needs no network request at all. Only if the
+         font genuinely isn't installed does this inject one request to
+         Google Fonts as a last-resort fallback. -->
+    <script>
+        (function () {
+            var hasFont = false;
+            try { hasFont = !!(document.fonts && document.fonts.check("12px 'JetBrains Mono'")); } catch (e) { /* no FontFaceSet API: stay offline, skip the fallback */ }
+            if (!hasFont) {
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap';
+                document.head.appendChild(link);
+            }
+        })();
+    </script>
+</head>
+<body>
+
+<!-- Top menu bar -->
+<header id="app-header">
+    <div class="header-side"></div>
+    <div id="logo">Logic Gate Simulator</div>
+    <div class="header-side" id="header-right">
+        <button type="button" id="close-btn">&times;</button>
+    </div>
+</header>
+
+<!-- Project title bar: plain, non-interactive (single canvas, no tabs). -->
+<div id="project-title">Main</div>
+
+<!-- Toolbar (centered as a group — see #toolbar in style.css) -->
+<div id="toolbar">
+    <div id="toolbar-group">
+        <button type="button" id="btn-save" title="Save">save</button>
+        <button type="button" id="btn-print" title="Print">print</button>
+        <button type="button" id="btn-clear-all" title="Clear All">clear-all</button>
+        <button type="button" id="btn-undo" title="Back to last save">&lt;</button>
+        <button type="button" id="btn-redo" title="Forward">&gt;</button>
+        <button type="button" id="btn-select" title="Select">select</button>
+        <button type="button" id="btn-pan" title="Pan">pan</button>
+        <button type="button" id="btn-play" title="Play: cycle through every input/output combination on the canvas">&#9654;</button>
+        <button type="button" id="btn-stop" title="Stop">&#9632;</button>
+        <button type="button" id="btn-multiselect" title="Multi-select">multiselect</button>
+        <button type="button" id="btn-cut" title="Cut">cut</button>
+        <button type="button" id="btn-copy" title="Copy">copy</button>
+        <button type="button" id="btn-paste" title="Paste">paste</button>
+        <button type="button" id="btn-delete" title="Delete">delete</button>
+        <button type="button" id="btn-flip-h" title="Flip Horizontal">flip-h</button>
+        <button type="button" id="btn-flip-v" title="Flip Vertical">flip-v</button>
+        <button type="button" id="btn-group" title="Group">group</button>
+        <button type="button" id="btn-create-gate" title="Create a custom gate from the selected circuit">create gate</button>
+        <button type="button" id="btn-grid" title="Grid">grid</button>
+        <button type="button" id="btn-note" title="Add note">&#9998;</button>
+        <button type="button" id="btn-help" title="Help">?</button>
+    </div>
+</div>
+
+<!-- Main body -->
+<div id="main-content">
+
+    <!-- Left drag-source panels -->
+    <aside id="left-panel">
+
+        <section class="panel" id="input-controls">
+            <h3>Input Controls</h3>
+            <div class="panel-items">
+                <div class="palette-item" draggable="true" data-type="toggle-switch">Toggle Switch</div>
+                <div class="palette-item" draggable="true" data-type="push-button">Push Button</div>
+                <div class="palette-item" draggable="true" data-type="clock">Clock</div>
+                <div class="palette-item" draggable="true" data-type="high-constant">High Constant</div>
+                <div class="palette-item" draggable="true" data-type="low-constant">Low Constant</div>
+            </div>
+        </section>
+
+        <section class="panel" id="output-controls">
+            <h3>Output Controls</h3>
+            <div class="panel-items">
+                <div class="palette-item" draggable="true" data-type="light-bulb">Light Bulb</div>
+                <div class="palette-item" draggable="true" data-type="four-bit-digit">4-Bit Digit</div>
+            </div>
+        </section>
+
+        <section class="panel" id="logic-gates">
+            <h3>Logic Gates</h3>
+            <div class="panel-items">
+                <div class="palette-item" draggable="true" data-type="buffer" data-min-inputs="1" data-default-inputs="1">Buffer</div>
+                <div class="palette-item" draggable="true" data-type="not" data-min-inputs="1" data-default-inputs="1">NOT Gate</div>
+                <div class="palette-item" draggable="true" data-type="and" data-min-inputs="2" data-default-inputs="2">AND Gate</div>
+                <div class="palette-item" draggable="true" data-type="nand" data-min-inputs="2" data-default-inputs="2">NAND Gate</div>
+                <div class="palette-item" draggable="true" data-type="or" data-min-inputs="2" data-default-inputs="2">OR Gate</div>
+                <div class="palette-item" draggable="true" data-type="nor" data-min-inputs="2" data-default-inputs="2">NOR Gate</div>
+                <div class="palette-item" draggable="true" data-type="xor" data-min-inputs="2" data-default-inputs="2">XOR Gate</div>
+                <div class="palette-item" draggable="true" data-type="xnor" data-min-inputs="2" data-default-inputs="2">XNOR Gate</div>
+                <div class="palette-item" draggable="true" data-type="tri-state" data-min-inputs="2" data-default-inputs="2">Tri-State</div>
+            </div>
+        </section>
+
+        <!-- Custom gates created with "create gate" — populated by customGates.js,
+             both at startup (from localStorage) and whenever a new one is made. -->
+        <section class="panel" id="custom-gates">
+            <h3>Custom Gates</h3>
+            <div class="panel-items" id="custom-gates-items">
+                <!-- <div class="palette-item custom-gate-item" draggable="true" data-type="custom:<id>">Name</div> -->
+            </div>
+        </section>
+
+    </aside>
+
+    <!-- Canvas / workspace: JointJS renders its own <svg> inside #paper-host.
+         The dot grid is a CSS background on #paper-host itself (see
+         style.css), so it keeps the original look including dark mode. -->
+    <div id="canvas-wrapper">
+        <div id="paper-host"></div>
+    </div>
+
+    <!-- Right side: Truth Tables -->
+    <aside id="right-panel">
+
+        <section class="panel" id="truth-tables">
+            <h3>Truth Tables</h3>
+            <!-- individual gate tables and/or logic-circuit groups appended here by JS -->
+            <div id="truth-tables-list"></div>
+            <!-- template for a master truth table, cloned by JS for each connected circuit;
+                 <details>/<summary> gives native collapse/expand -->
+            <template id="logic-circuit-template">
+                <details class="logic-circuit">
+                    <summary class="logic-circuit-title">Logic Circuit</summary>
+                    <div class="logic-circuit-body">
+                        <!-- master truth table for the circuit, plus the individual gate
+                             tables it's made of, inserted here by JS -->
+                    </div>
+                </details>
+            </template>
+        </section>
+    </aside>
+
+</div>
+
+<!-- Bottom status/playback bar (zoom cluster centered — see #status-bar in style.css) -->
+<footer id="status-bar">
+    <span id="status-dot"></span>
+    <div id="zoom-group">
+        <button type="button" id="btn-zoom-out" title="Zoom out">zoom-out</button>
+        <input type="range" id="zoom-slider" min="50" max="200" step="10" value="100">
+        <button type="button" id="btn-zoom-in" title="Zoom in">zoom-in</button>
+    </div>
+    <label id="dark-mode-switch" for="dark-mode-toggle">
+        Dark Mode
+        <input type="checkbox" id="dark-mode-toggle">
+    </label>
+</footer>
+
+<!-- Note popup template -->
+<div id="note-popup" hidden>
+    <label for="note-title">Title:</label>
+    <input type="text" id="note-title">
+    <label for="note-body">Note:</label>
+    <textarea id="note-body"></textarea>
+    <div id="note-input-count-section" hidden>
+        <label for="note-input-count">Input Count</label>
+        <div class="stepper">
+            <button type="button" id="note-input-count-decrease" class="stepper-btn" aria-label="Decrease input count">&minus;</button>
+            <input type="number" id="note-input-count" min="1" value="2">
+            <button type="button" id="note-input-count-increase" class="stepper-btn" aria-label="Increase input count">+</button>
+        </div>
+    </div>
+    <!-- Clock speed (correction): shown only when the note popup's target is
+         a clock control; options populated from Logic.CLOCK_SPEED_PRESETS. -->
+    <div id="note-clock-speed-section" hidden>
+        <label for="note-clock-speed">Clock Speed</label>
+        <select id="note-clock-speed"></select>
+    </div>
+</div>
+
+<!-- Clear All confirmation -->
+<div id="clear-all-confirm" hidden>
+    <p>Erase everything on the canvas?</p>
+    <button type="button" id="clear-all-yes">Yes</button>
+    <button type="button" id="clear-all-no">No</button>
+</div>
+
+<!-- Limit / warning dialog (drawn by popups.js for limits.js) -->
+<div id="limit-popup" class="limit-warning" hidden role="alertdialog" aria-labelledby="limit-title" aria-describedby="limit-message">
+    <h4 id="limit-title">Warning</h4>
+    <p id="limit-message"></p>
+    <div class="popup-actions">
+        <button type="button" id="limit-cancel">Cancel</button>
+        <button type="button" id="limit-confirm">OK</button>
+    </div>
+</div>
+
+<!-- Create Gate: name prompt -->
+<div id="create-gate-name-popup" hidden>
+    <p>Name this custom gate:</p>
+    <input type="text" id="create-gate-name-input" maxlength="40">
+    <div class="popup-actions">
+        <button type="button" id="create-gate-name-cancel">Cancel</button>
+        <button type="button" id="create-gate-name-confirm">Create</button>
+    </div>
+</div>
+
+<!-- Create Gate: remove-originals confirmation (asked after a successful create) -->
+<div id="create-gate-remove-confirm" hidden>
+    <p>Remove the original gates from the canvas?</p>
+    <button type="button" id="create-gate-remove-yes">Yes</button>
+    <button type="button" id="create-gate-remove-no">No</button>
+</div>
+
+<!-- Create Gate: plain info/alert message (invalid selection, duplicate found) -->
+<div id="custom-gate-message" hidden role="alertdialog" aria-describedby="custom-gate-message-text">
+    <p id="custom-gate-message-text"></p>
+    <button type="button" id="custom-gate-message-ok">OK</button>
+</div>
+
+<!-- Custom gate: read-only view of its captured internal configuration -->
+<div id="custom-gate-view" hidden>
+    <h4 id="custom-gate-view-title">Custom Gate</h4>
+    <div id="custom-gate-view-body"></div>
+    <button type="button" id="custom-gate-view-close">Close</button>
+</div>
+
+<!-- Custom gate: delete confirmation (removes the definition AND every placed instance) -->
+<div id="custom-gate-delete-confirm" hidden>
+    <p id="custom-gate-delete-text"></p>
+    <button type="button" id="custom-gate-delete-yes">Yes, delete</button>
+    <button type="button" id="custom-gate-delete-no">Cancel</button>
+</div>
+
+<!-- Application entry point: main.js imports every other module.
+     shapes.js is imported by main.js's dependency chain (via canvas.js),
+     not loaded separately here. -->
+<script type="module" src="main.js"></script>
+
+</body>
+</html>

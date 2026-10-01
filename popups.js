@@ -1,0 +1,281 @@
+/**
+ * popups.js — Dialog & Note Handlers
+ * ---------------------------------------------------------------------------
+ * Per jsPrompt.md §7 / htmlPrompt.md §6:
+ *   - #note-popup opens via #btn-note (arm it, then click a control) or by
+ *     double-clicking a control. EXCEPTION: a Push Button ignores double-click
+ *     (a double-click is two quick presses) and can only open its note
+ *     through the pencil. Its #note-input-count-section only shows for logic
+ *     gates.
+ *   - #clear-all-confirm handles its own yes/no.
+ *   - #limit-popup is the shared warning dialog for limits.js (gate limit,
+ *     speed guard, big truth tables). It is registered as limits.js's prompt
+ *     handler below.
+ *   - The pencil tool (#btn-note) also disarms on a blank-canvas click and
+ *     on Escape (Task 6.2), and shows its armed state via the toolbar's own
+ *     .selected style.
+ *   - Create Gate's own popups (#create-gate-name-popup,
+ *     #create-gate-remove-confirm, #custom-gate-message, #custom-gate-view,
+ *     #custom-gate-delete-confirm) are wired up in customGates.js, not here
+ *     — they're specific to that one feature.
+ *   - Sign In was removed entirely (Task 6.8); #login-popup's CSS was left
+ *     alone per instructions, but nothing opens it any more.
+ */
+import * as App from './app.js';
+import * as Logic from './logic.js';
+import * as Tables from './tables.js';
+import * as Limits from './limits.js';
+import * as Shapes from './shapes.js';
+import { getPaperInstance } from './canvas.js';
+
+const paper = getPaperInstance();
+
+// ---------------- Note popup ----------------
+
+const notePopup = document.getElementById('note-popup');
+const noteTitle = document.getElementById('note-title');
+const noteBody = document.getElementById('note-body');
+const noteInputSection = document.getElementById('note-input-count-section');
+const noteInputCount = document.getElementById('note-input-count');
+const noteInputDec = document.getElementById('note-input-count-decrease');
+const noteInputInc = document.getElementById('note-input-count-increase');
+const noteClockSpeedSection = document.getElementById('note-clock-speed-section');
+const noteClockSpeed = document.getElementById('note-clock-speed');
+
+// Correction: let the user pick a clock's speed from common presets.
+// Options are built once, here, from Logic.CLOCK_SPEED_PRESETS.
+Logic.CLOCK_SPEED_PRESETS.forEach((preset) => {
+    const option = document.createElement('option');
+    option.value = String(preset.halfPeriodMs);
+    option.textContent = preset.label;
+    noteClockSpeed.appendChild(option);
+});
+noteClockSpeed.addEventListener('change', () => {
+    if (noteTarget && noteTarget.type === 'clock') Logic.setClockSpeed(noteTarget, Number(noteClockSpeed.value));
+});
+
+let noteTarget = null;
+let noteToolArmed = false;
+
+/**
+ * Correction: "mark what objects have notes attached" — the simplest thing
+ * that actually solves it: a small dot in each control's corner (shapes.js's
+ * noteBadge), shown whenever its note has a title or body. Exported so
+ * saveLoad.js can call it too, after restoring a control's note directly
+ * (bypassing the popup UI these other call sites go through).
+ */
+export const updateNoteBadge = (control) => {
+    const hasNote = Boolean(control.note && (control.note.title || control.note.body));
+    control.cell.attr('noteBadge/display', hasNote ? '' : 'none');
+};
+
+export const openNotePopup = (control) => {
+    noteTarget = control;
+    noteTitle.value = (control.note && control.note.title) || '';
+    noteBody.value = (control.note && control.note.body) || '';
+    const isGate = App.GATE_TYPES.has(control.type);
+    noteInputSection.hidden = !isGate;
+    if (isGate) {
+        noteInputCount.value = String(control.inputCount);
+        const fixed = App.FIXED_INPUT_TYPES.has(control.type);
+        noteInputInc.disabled = fixed;
+        noteInputDec.disabled = fixed;
+    }
+    const isClock = control.type === 'clock';
+    noteClockSpeedSection.hidden = !isClock;
+    if (isClock) noteClockSpeed.value = String(control.halfPeriodMs || Logic.CLOCK_SPEED_PRESETS.find((p) => p.label.startsWith('Default')).halfPeriodMs);
+    notePopup.hidden = false;
+};
+
+const closeNotePopup = () => {
+    if (noteTarget) {
+        noteTarget.note = { title: noteTitle.value, body: noteBody.value };
+        updateNoteBadge(noteTarget);
+        if (App.GATE_TYPES.has(noteTarget.type) || noteTarget.type.startsWith('custom:')) Tables.rebuild();
+    }
+    notePopup.hidden = true;
+    noteTarget = null;
+};
+
+noteTitle.addEventListener('change', () => {
+    if (!noteTarget) return;
+    noteTarget.note = { ...noteTarget.note, title: noteTitle.value };
+    updateNoteBadge(noteTarget);
+    if (App.GATE_TYPES.has(noteTarget.type) || noteTarget.type.startsWith('custom:')) Tables.rebuild(); // the table caption may need to match the new title
+});
+noteBody.addEventListener('change', () => {
+    if (noteTarget) {
+        noteTarget.note = { ...noteTarget.note, body: noteBody.value };
+        updateNoteBadge(noteTarget);
+    }
+});
+
+document.addEventListener('click', (event) => {
+    if (!notePopup.hidden && !notePopup.contains(event.target) && !event.target.closest('.control')) closeNotePopup();
+});
+
+const noteButton = document.getElementById('btn-note');
+
+// Correction: give the active tool a persistent, visible cursor cue
+// (`.tool-note`, see style.css) until the user presses Escape, right-clicks,
+// or picks a different tool — not just while a button is mid-click.
+const setNoteToolArmed = (armed) => {
+    noteToolArmed = armed;
+    if (noteButton) noteButton.classList.toggle('selected', armed); // visible armed state
+    // NOT paper.el — see selection.js's identical note on this; paper.el is
+    // an inner wrapper div JointJS creates itself, not #paper-host, which is
+    // what style.css's tool-cursor rules actually target.
+    document.getElementById('paper-host').classList.toggle('tool-note', armed);
+};
+
+if (noteButton) {
+    noteButton.addEventListener('click', () => {
+        if (!noteToolArmed) App.emit('tool:cancel'); // disarm any other overlay (e.g. multiselect) first
+        setNoteToolArmed(!noteToolArmed);
+    });
+}
+
+// Pencil (#btn-note) then click: works for EVERY control, push buttons
+// included. Runs alongside selection.js's own 'element:pointerclick'
+// listener (both fire on the same click, same as the old dual-purpose
+// click handling).
+paper.on('element:pointerclick', (elementView) => {
+    if (!noteToolArmed) return;
+    setNoteToolArmed(false);
+    const control = App.getControl(elementView.model.id);
+    if (control) openNotePopup(control);
+});
+
+// Disarm on a blank-canvas click (Task 6.2) — runs alongside selection.js's
+// own 'blank:pointerclick' listener, which separately clears the selection.
+paper.on('blank:pointerclick', () => setNoteToolArmed(false));
+
+// Disarm on Escape, right-click, or picking a different tool (Task 6.2,
+// extended per the correction above) — a single shared event other modules
+// (selection.js's multiselect, toolbar.js's pan) also listen for, so one
+// Escape press or right-click clears whichever overlay is actually active
+// without each module needing to know about the others directly.
+App.events.addEventListener('tool:cancel', () => setNoteToolArmed(false));
+
+// Double-click: every control EXCEPT the push button.
+paper.on('element:pointerdblclick', (elementView) => {
+    const control = App.getControl(elementView.model.id);
+    if (!control || control.type === 'push-button') return;
+    openNotePopup(control);
+});
+
+// ---------------- Shared input-count mutation ----------------
+
+export const setGateInputCount = (control, requested) => {
+    if (!control || !App.GATE_TYPES.has(control.type)) return;
+    if (App.FIXED_INPUT_TYPES.has(control.type)) return; // Buffer / NOT never change
+
+    const source = document.querySelector(`.palette-item[data-type="${control.type}"]`);
+    const min = source ? parseInt(source.dataset.minInputs, 10) : 1;
+    const target = Math.max(min, requested);
+    const current = control.inputCount;
+
+    if (target > current) {
+        for (let i = current; i < target; i++) {
+            control.cell.addPort({ id: `${control.id}-in-${i}`, group: 'in' });
+        }
+    } else if (target < current) {
+        for (let i = current - 1; i >= target; i--) {
+            const nodeId = `${control.id}-in-${i}`;
+            const wire = App.getWireInto(nodeId);
+            if (wire) App.removeWire(wire.id);
+            control.cell.removePort(nodeId);
+        }
+    }
+    if (target !== current) {
+        Shapes.layoutPorts(control.cell);
+        Shapes.stampPortSides(control.cell, getPaperInstance());
+    }
+    control.inputCount = target;
+    App.emit('control:inputcount', control);
+    Logic.evaluate();
+};
+
+/**
+ * Clamp `requested` to the gate's real minimum and write the RESULT back to
+ * the field (Task 6.1) — needed because setGateInputCount silently re-clamps
+ * internally too, so without this the field could show a value (e.g. an AND
+ * gate's minus button driving the field to 1) that doesn't match the gate's
+ * actual input count (which the min already held at 2), a real
+ * display/data mismatch.
+ */
+const applyNoteInputCount = (requested) => {
+    if (!noteTarget) return;
+    setGateInputCount(noteTarget, requested);
+    noteInputCount.value = String(noteTarget.inputCount);
+};
+
+noteInputInc.addEventListener('click', () => applyNoteInputCount(parseInt(noteInputCount.value, 10) + 1));
+noteInputDec.addEventListener('click', () => applyNoteInputCount(parseInt(noteInputCount.value, 10) - 1));
+
+// Typing a value directly into the field (Task 6.1's "also when typed into
+// the number field") previously did nothing at all — only the +/- buttons
+// worked.
+noteInputCount.addEventListener('change', () => {
+    const typed = parseInt(noteInputCount.value, 10);
+    applyNoteInputCount(Number.isNaN(typed) ? (noteTarget ? noteTarget.inputCount : 1) : typed);
+});
+
+// ---------------- Clear All ----------------
+
+const clearAllConfirm = document.getElementById('clear-all-confirm');
+
+export const openClearAllConfirm = () => {
+    clearAllConfirm.hidden = false;
+};
+
+document.getElementById('clear-all-yes').addEventListener('click', () => {
+    App.allControls().forEach((control) => App.removeControl(control.id));
+    clearAllConfirm.hidden = true;
+});
+document.getElementById('clear-all-no').addEventListener('click', () => {
+    clearAllConfirm.hidden = true;
+});
+
+// ---------------- Limit / warning dialog (used by limits.js) ----------------
+
+const limitPopup = document.getElementById('limit-popup');
+const limitTitle = document.getElementById('limit-title');
+const limitMessage = document.getElementById('limit-message');
+const limitConfirm = document.getElementById('limit-confirm');
+const limitCancel = document.getElementById('limit-cancel');
+
+/** Show the dialog and resolve true (confirm) or false (cancel / Escape). */
+const showLimitDialog = (options) =>
+    new Promise((resolve) => {
+        limitPopup.className = `limit-${options.severity || 'warning'}`;
+        limitTitle.textContent = options.title;
+        limitMessage.textContent = options.message;
+        limitConfirm.textContent = options.confirmLabel || 'OK';
+        limitCancel.textContent = options.cancelLabel || 'Cancel';
+        limitPopup.hidden = false;
+
+        const finish = (result) => {
+            limitPopup.hidden = true;
+            limitConfirm.removeEventListener('click', onConfirm);
+            limitCancel.removeEventListener('click', onCancel);
+            document.removeEventListener('keydown', onKey, true);
+            resolve(result);
+        };
+        const onConfirm = () => finish(true);
+        const onCancel = () => finish(false);
+        const onKey = (event) => {
+            if (event.key !== 'Escape') return;
+            event.stopPropagation();
+            finish(false);
+        };
+
+        limitConfirm.addEventListener('click', onConfirm);
+        limitCancel.addEventListener('click', onCancel);
+        document.addEventListener('keydown', onKey, true);
+
+        // The dire dialog defaults focus to the safe choice.
+        (options.severity === 'dire' ? limitCancel : limitConfirm).focus();
+    });
+
+Limits.setPromptHandler(showLimitDialog);
