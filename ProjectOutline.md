@@ -48,10 +48,12 @@ This project sits somewhere in between: the AI was given detailed descriptions f
 - Not keeping the `.md` documentation files updated created conflicts that extended Q/A time with AI, issues not being corrected, and a possible regression of code.
 - Using free versions of AI became impossible after combining the `.js`, `.html`, and `.css` files, due to the processing needed to analyze all of the files. A single request would use up all of the allotted time.
 - Starting with a large scope caused issues when downsizing, changing, or removing features that were not needed.
+- An open-source library was integrated when the complexity of the application had increased significantly.
 
 ### Improvements
 - A system needs to be implemented to keep `.md` documentation up to date over multiple computers.
 - Starting scope needs to start out smaller, with any additions planned in steps.
+- Analyze the complexity of the application in order to prevent significant changes in scope.
 
 ### **<--------Conversationanalysis.md-------->**
 
