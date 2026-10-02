@@ -12,20 +12,21 @@
 
 **Time:** We count both the AI's processing time and the programmer's time (writing prompts, testing, and using the output). This combined time is then compared to how long it would take to build a similar program without AI.
 
-**Method:** We use a sliding scale from ("minimal") AI use to the ("maximum") use. method scale and labels may change as evaluation progress.
+**Method:** A sliding scale from ("minimal") AI use to the ("maximum") use. method scale and labels may change as evaluation progress.
 - *Minimal* Only asking the AI to write one function at a time, or find a specific issue in a project.
 - *Skeletal* AI builds the base structure or architecture of a project, while the programmer creates code, functions, and builds everything else.   
 - *Modular* A middle point where the AI was given detailed instructions on a part of a project and instructed on what to do. 
 - *Generative* AI handles broad, sweeping code generation under guidance from a programmer. 
 - *Maximum* means asking the AI to build the whole project from one large prompt, with little checking or engagement from programmers.
 
-This project would currently be closest to a modular method. AI was given detailed descriptions for each part of the program, and those parts were combined into one working application.  
+This project would be a modular method. AI was given detailed descriptions for each part of the program, and those parts were combined into one working application by the programmer.  
 
 **Quality:** Quality will be judged by Instructors (not the AI), and compared against other projects that AI tools. The goal is to see how the amount of AI and the method used relates to the quality of a project.
 
-**Benefits:** Using AI well could mean building a good program faster, with fewer problems. Current (non-AI) methods are slower, but AI alone does not guarantee quality. If we can define a good method for using AI, it could become a standard — and a finished AI-assisted program could serve as a template for future projects.
+**Benefits:** Learning effective methods for integrating AI can help build projects faster and help preserve quality. Establishing best practices, can maximize productivity, minimize hidden errors, and build a reliable foundation to teach future programmers how to use AI as a powerful asset rather than a crutch.
 
-**Problems:** AI can create problems if it isn't used correctly. The programmer still needs a solid understanding of programming functions, how computers work, etc. Without that, the programmer can't properly guide the AI, check its work, or fix mistakes.
+**Problems:** Improper use of AI often create fragile software plagued by logic errors, security flaws, and unmaintainable code.  It is important to learn methods, and practices of implementing AI.
+
 
 ### Project Details
 - **AI used:** Claude
